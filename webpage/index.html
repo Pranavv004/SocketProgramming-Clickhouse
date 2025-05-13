@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Live Updates</title>
+</head>
+<body>
+    <h1>Country Live Updates</h1>
+    <p id="live-users">Live Users: 0</p>
+    <form id="country-form">
+        <label>Country Name: <input type="text" id="name" required></label><br>
+        <label>Country Code (2 letters): <input type="text" id="code" pattern="[A-Z]{2}" required></label><br>
+        <button type="submit" onclick="submitCountry()">Add Country</button>
+    </form>
+    <h3>Updates</h3>
+    <ul id="countries"></ul>
+
+    <script>
+        let socket;
+
+        function connectWebSocket() {
+            socket = new WebSocket('wss://country-live-service.onrender.com/ws/country-updates');
+
+            socket.onopen = () => console.log('WebSocket connected');
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'country') {
+                    const li = document.createElement('li');
+                    li.textContent = data.message;
+                    document.getElementById('countries').prepend(li);
+                } else if (data.type === 'userCount') {
+                    document.getElementById('live-users').textContent = `Live Users: ${data.count}`;
+                } else if (data.type === 'error') {
+                    alert(data.message);
+                }
+            };
+
+            socket.onclose = () => setTimeout(connectWebSocket, 5000);
+            socket.onerror = (error) => console.error('WebSocket error:', error);
+        }
+
+        function submitCountry() {
+            const name = document.getElementById('name').value.trim();
+            const code = document.getElementById('code').value.trim().toUpperCase();
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ name, code }));
+                document.getElementById('country-form').reset();
+            } else {
+                alert('WebSocket not connected');
+            }
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>
