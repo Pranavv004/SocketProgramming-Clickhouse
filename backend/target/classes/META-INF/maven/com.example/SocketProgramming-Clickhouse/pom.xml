@@ -5,8 +5,6 @@
     <groupId>com.example</groupId>
     <artifactId>SocketProgramming-Clickhouse</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>CountryLiveService</name>
-    <description>Spring Boot service for real-time country updates with WebSockets</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
