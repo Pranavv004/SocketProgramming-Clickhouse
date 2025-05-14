@@ -57,7 +57,8 @@ public class CountryUpdateHandler extends TextWebSocketHandler {
                                                 request.getName(), request.getCode());
             broadcastMessage(updateMessage);
         } catch (Exception e) {
-            session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Database error\"}"));
+            e.printStackTrace(); 
+            session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Database error: " + e.getMessage() + "\"}"));
         }
     }
 
