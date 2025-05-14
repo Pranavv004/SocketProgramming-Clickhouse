@@ -57,17 +57,13 @@ public class CountryUpdateHandler extends TextWebSocketHandler {
             broadcastMessage(updateMessage);
         } catch (Exception e) {
             e.printStackTrace();
-            // Sanitize error message
             String sanitizedError = e.getMessage().replaceAll("[\\p{Cntrl}]", " ");
-            // Get connection details
             String url = System.getenv("SPRING_DATASOURCE_URL");
             String username = System.getenv("SPRING_DATASOURCE_USERNAME");
             String password = System.getenv("SPRING_DATASOURCE_PASSWORD");
-            // Mask password for logging
-            String maskedPassword = password != null ? password.replaceAll(".", "*") : "null";
             String logMessage = String.format(
                 "Database error: %s | URL: %s | Username: %s | Password: %s",
-                sanitizedError, url, username, maskedPassword
+                sanitizedError, url, username, password != null ? password : "null"
             );
             System.out.println(logMessage);
             String errorMsg = String.format("{\"type\":\"error\",\"message\":\"Database error: %s\"}", sanitizedError);
