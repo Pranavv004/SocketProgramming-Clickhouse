@@ -6,7 +6,6 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -57,8 +56,22 @@ public class CountryUpdateHandler extends TextWebSocketHandler {
                                                 request.getName(), request.getCode());
             broadcastMessage(updateMessage);
         } catch (Exception e) {
-            e.printStackTrace(); 
-            session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Database error: " + e.getMessage() + "\"}"));
+            e.printStackTrace();
+            // Sanitize error message
+            String sanitizedError = e.getMessage().replaceAll("[\\p{Cntrl}]", " ");
+            // Get connection details
+            String url = System.getenv("SPRING_DATASOURCE_URL");
+            String username = System.getenv("SPRING_DATASOURCE_USERNAME");
+            String password = System.getenv("SPRING_DATASOURCE_PASSWORD");
+            // Mask password for logging
+            String maskedPassword = password != null ? password.replaceAll(".", "*") : "null";
+            String logMessage = String.format(
+                "Database error: %s | URL: %s | Username: %s | Password: %s",
+                sanitizedError, url, username, maskedPassword
+            );
+            System.out.println(logMessage);
+            String errorMsg = String.format("{\"type\":\"error\",\"message\":\"Database error: %s\"}", sanitizedError);
+            session.sendMessage(new TextMessage(errorMsg));
         }
     }
 
