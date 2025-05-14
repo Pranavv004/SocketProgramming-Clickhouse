@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+</head>
+<body>
+    <h3>Connected Users</h3>
+    <table id="userTable">
+        <thead>
+            <tr>
+                <th>Session ID</th>
+                <th>IP Address</th>
+            </tr>
+        </thead>
+        <tbody id="userList"></tbody>
+    </table>
+    <h3>Send Message to All Users</h3>
+    <input type="text" id="messageInput" placeholder="Enter message">
+    <button onclick="sendMessage()">Send</button>
+    <div id="status"></div>
+
+    <script>
+        const userSocket = new WebSocket('wss://country-live-service.onrender.com/ws/country-updates');
+        const userList = document.getElementById('userList');
+        userSocket.onopen = function() {
+            userSocket.send(JSON.stringify({ type: 'adminConnect' }));
+        };
+        userSocket.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'userList') {
+                    userList.innerHTML = '';
+                    data.users.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td>${user.sessionId}</td><td>${user.ip}</td>`;
+                        userList.appendChild(row);
+                    });
+                } else if (data.type === 'error') {
+                    document.getElementById('status').textContent = `Error: ${data.message}`;
+                }
+            } catch (e) {
+                console.error('JSON parse error:', e);
+            }
+        };
+        const adminSocket = new WebSocket('wss://admin-service.onrender.com/ws/admin-messages');
+        adminSocket.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'success') {
+                    document.getElementById('status').textContent = 'Message sent successfully!';
+                } else if (data.type === 'error') {
+                    document.getElementById('status').textContent = `Error: ${data.message}`;
+                }
+            } catch (e) {
+                console.error('JSON parse error:', e);
+            }
+        };
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            if (message) {
+                const payload = JSON.stringify({ type: 'adminMessage', message: message });
+                adminSocket.send(payload);
+                messageInput.value = '';
+                document.getElementById('status').textContent = 'Sending message...';
+            } else {
+                document.getElementById('status').textContent = 'Error: Message cannot be empty';
+            }
+        }
+    </script>
+</body>
+</html>
