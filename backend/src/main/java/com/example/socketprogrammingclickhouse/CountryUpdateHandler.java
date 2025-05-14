@@ -6,21 +6,14 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class CountryUpdateHandler extends TextWebSocketHandler {
-    private final DataSource dataSource;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
-
-    public CountryUpdateHandler(DataSource dataSource) {
-        this.dataSource = dataSource;
-    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -38,37 +31,29 @@ public class CountryUpdateHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        CountryRequest request = objectMapper.readValue(message.getPayload(), CountryRequest.class);
-        if (request.getName() == null || request.getName().trim().isEmpty() || 
-            request.getCode() == null || !request.getCode().matches("^[A-Z]{2}$")) {
-            session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Invalid country name or code\"}"));
+        Map<String, String> payload = objectMapper.readValue(message.getPayload(), Map.class);
+        String type = payload.get("type");
+
+        if ("adminMessage".equals(type)) {
+            // Only allow admin-service to send admin messages (basic validation)
+            if (session.getAttributes().containsKey("isAdmin")) {
+                String adminMessage = payload.get("message");
+                if (adminMessage != null && !adminMessage.trim().isEmpty()) {
+                    String broadcastMessage = String.format(
+                        "{\"type\":\"adminMessage\",\"message\":\"Admin: %s\"}",
+                        adminMessage
+                    );
+                    broadcastMessage(broadcastMessage);
+                } else {
+                    session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Empty admin message\"}"));
+                }
+            } else {
+                session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Unauthorized admin message\"}"));
+            }
             return;
         }
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "INSERT INTO testdb.countries (name, code, inserted_at) VALUES (?, ?, now())")) {
-            stmt.setString(1, request.getName());
-            stmt.setString(2, request.getCode());
-            stmt.executeUpdate();
-
-            String updateMessage = String.format("{\"type\":\"country\",\"message\":\"New country added: %s (%s)\"}", 
-                                                request.getName(), request.getCode());
-            broadcastMessage(updateMessage);
-        } catch (Exception e) {
-            e.printStackTrace();
-            String sanitizedError = e.getMessage().replaceAll("[\\p{Cntrl}]", " ");
-            String url = System.getenv("SPRING_DATASOURCE_URL");
-            String username = System.getenv("SPRING_DATASOURCE_USERNAME");
-            String password = System.getenv("SPRING_DATASOURCE_PASSWORD");
-            String logMessage = String.format(
-                "Database error: %s | URL: %s | Username: %s | Password: %s",
-                sanitizedError, url, username, password != null ? password : "null"
-            );
-            System.out.println(logMessage);
-            String errorMsg = String.format("{\"type\":\"error\",\"message\":\"Database error: %s\"}", sanitizedError);
-            session.sendMessage(new TextMessage(errorMsg));
-        }
+        session.sendMessage(new TextMessage("{\"type\":\"error\",\"message\":\"Invalid message type\"}"));
     }
 
     private void broadcastMessage(String message) throws Exception {
@@ -83,26 +68,5 @@ public class CountryUpdateHandler extends TextWebSocketHandler {
     private void broadcastUserCount() throws Exception {
         String userCountMessage = String.format("{\"type\":\"userCount\",\"count\":%d}", sessions.size());
         broadcastMessage(userCountMessage);
-    }
-
-    static class CountryRequest {
-        private String name;
-        private String code;
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getCode() {
-            return code;
-        }
-
-        public void setCode(String code) {
-            this.code = code;
-        }
     }
 }
