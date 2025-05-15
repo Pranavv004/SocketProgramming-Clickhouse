@@ -18,6 +18,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(countryUpdateHandler, "/ws/country-updates")
-                .setAllowedOrigins("http://localhost:8000", "https://country-live-webpage.onrender.com");
+        .setAllowedOrigins(
+                "https://country-live-webpage.onrender.com",
+                "https://admin-webpage.onrender.com",
+                "http://localhost:3000"
+            );
     }
 }
